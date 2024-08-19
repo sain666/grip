@@ -17,5 +17,88 @@ grip-rm, like git rm, should stop the user accidentally losing work, and should 
 - `grip-status` shows the status of files in the current directory, the index, and the repository.
 - `grip-branch [-d] [branch-name]` either creates a branch, deletes a branch, or lists current branch names.
 
+## Examples
+
+**Example1**
+```
+./grip-init
+Initialized empty grip repository in .grip
+echo line 1 > a
+echo hello world >b
+./grip-add a b
+./grip-commit -m 'first commit'
+Committed as commit 0
+echo  line 2 >>a
+./grip-add a
+./grip-commit -m 'second commit'
+Committed as commit 1
+./grip-log
+1 second commit
+0 first commit
+echo line 3 >>a
+./grip-add a
+echo line 4 >>a
+./grip-show 0:a
+line 1
+./grip-show 1:a
+line 1
+line 2
+./grip-show :a
+line 1
+line 2
+line 3
+cat a
+line 1
+line 2
+line 3
+line 4
+./grip-show 0:b
+hello world
+./grip-show 1:b
+hello world
+```
+
+**Example2**
+```
+./grip-init
+Initialized empty grip repository in .grip
+touch a b c d e f g h
+./grip-add a b c d e f
+./grip-commit -m 'first commit'
+Committed as commit 0
+echo hello >a
+echo hello >b
+./grip-commit -a -m 'second commit'
+Committed as commit 1
+echo world >>a
+echo world >>b
+echo hello world >c
+./grip-add a
+echo world >>b
+rm d
+./grip-rm e
+./grip-add g
+./grip-status
+a - file changed, changes staged for commit
+b - file changed, changes not staged for commit
+c - file changed, changes not staged for commit
+d - file deleted
+e - file deleted, deleted from index
+f - same as repo
+g - added to index
+grip-add - untracked
+grip-branch - untracked
+grip-checkout - untracked
+grip-commit - untracked
+grip-init - untracked
+grip-log - untracked
+grip-merge - untracked
+grip-rm - untracked
+grip-show - untracked
+grip-status - untracked
+grip.py - untracked
+h - untracked
+```
+
 - **Mark**: 86.1/100 (High Distinction)
 
