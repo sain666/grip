@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+
+import sys
+import os
+
+def input_check():
+    name = ".grip"
+    if len(sys.argv) != 1:
+        print("usage: grip-init")
+        sys.exit()
+
+    if not os.path.exists(name):
+        os.mkdir(name)
+    else:
+        print("grip-init: error: .grip already exists")
+        sys.exit()
+
+
+def initaialize():
+    name = ".grip"
+    staging = os.path.join(name, "staging")
+    cached = os.path.join(name, "cached")
+    commits = os.path.join(name, "commits")
+    blob = os.path.join(name, "blob")
+
+
+    os.mkdir(staging)
+    os.mkdir(cached)
+    os.mkdir(commits)
+    os.mkdir(blob)
+
+    cached_name = os.path.join(cached, "tracking")
+    stage_name = os.path.join(staging, "tracking")
+
+    with open(cached_name, 'w') as file:
+        file.write("")
+    
+    with open(stage_name, 'w') as file:
+        file.write("")
+
+    print("Initialized empty grip repository in .grip")
+
+input_check()
+initaialize()

@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+
+import sys
+import os
+import shutil
+import difflib
+import uuid
+
+def get_info():
+    
+    cached_name = os.path.join(".grip", "cached", "tracking")
+    stage_name = os.path.join(".grip", "staging", "tracking")            
+
+    with open(cached_name) as file:
+        cache = file.readlines()
+
+    with open(stage_name) as file:
+        stage = file.readlines()
+
+    cache_dict = {}
+    for i in range(len(cache)):
+        cache_dict[cache[i].strip().split()[0]] = cache[i].strip().split()[1]
+    
+    stage_dict = {}
+    for i in range(len(stage)):
+        stage_dict[stage[i].strip().split()[0]] = stage[i].strip().split()[1]
+    
+    commits = os.path.join(".grip", "commits")   
+    last_commit = len(os.listdir(commits)) - 1
+    head_dict = {}
+    if last_commit >= 0:
+        head = os.path.join(".grip", "commits", str(last_commit), "tracking")
+        
+        with open(head) as file1:
+            head_files = file1.readlines()
+    
+        for i in range(len(head_files)):
+            head_dict[head_files[i].strip().split()[0]] = head_files[i].strip().split()[1]
+
+        
+    return cache_dict, stage_dict, head_dict
+
+def addition():
+    cache, stage, head = get_info()
+    for key, value in cache.items():
+        if os.path.exists(key):
+            random_id = str(uuid.uuid4())
+            stage[key] = random_id
+            shutil.copy2(key, os.path.join(".grip", "blob", os.path.basename(random_id)))
+            
+    with open(os.path.join(".grip", "staging", "tracking"), 'w') as file:
+        for key, value in stage.items():
+            file.write(key + " " + value + "\n")
+            
+def check_dup():
+    #If there are any difference between (snapshot) last commit tracking and current stage tracking, 
+    # or curremt stage tracking and cache tracking then commit.
+    #Otherwise, nothing to commit
+    cache, stage, head = get_info()
+
+    #Something must be deleted from cache
+    if len(cache) != len(head):
+        return False
+
+    #Nothing have been added
+    if len(stage) == 0:
+        return True
+    
+    #If there are nothing then nothing to commit
+    if len(cache) == 0 and len(stage) == 0 and len(head) == 0:
+        return True
+
+    #if there are something in stage but nothing in head, then it is good to make a commit
+    if len(head) == 0:
+        return False
+
+    #If stage have the same thing with head commit, then it is no need to commit it.
+    for key, value in head.items():
+        if key in stage:
+            if value == stage[key]:
+                del stage[key]
+    
+    if len(stage) == 0:
+        return True
+    return False
+
+def input_check():
+    if not os.path.exists(".grip"):
+        print("grip-commit: error: grip repository directory .grip not found")
+        sys.exit()
+
+    if len(sys.argv) == 4:
+        if sys.argv[1] != "-a":
+            print("usage: grip-commit [-a] -m commit-message")
+            sys.exit()
+        
+        if sys.argv[2] != "-m":
+            print("usage: grip-commit [-a] -m commit-message")
+            sys.exit()
+        addition()
+        commit_message = sys.argv[3]
+
+    elif len(sys.argv) == 3:
+        if sys.argv[1] != "-m":
+            print("usage: grip-commit [-a] -m commit-message")
+            sys.exit()
+
+        commit_message = sys.argv[2]
+    else:
+        print("usage: grip-commit [-a] -m commit-message")
+        sys.exit()
+
+    if check_dup():
+        print("nothing to commit")
+        sys.exit()
+
+    return commit_message
+
+def save_snapshot():
+    cache, stage, head = get_info()
+    for key, value in stage.items():
+        cache[key] = value
+
+    cache_name = os.path.join(".grip", "cached", "tracking")
+    stage_name = os.path.join(".grip", "staging", "tracking")
+
+    with open(cache_name, 'w') as file:
+        for key, value in cache.items():
+            file.write(key + " " + value + "\n")
+
+    with open(stage_name, 'w') as file:
+        file.write("")
+
+    
+def commit(commit_message):
+    parent_dir = os.path.join(".grip", "commits")
+    commit_num = len(os.listdir(parent_dir))
+
+    des_dir = os.path.join(".grip", "commits", str(commit_num))
+    os.mkdir(des_dir)
+    message = os.path.join(des_dir, "message")
+
+    src = os.path.join(".grip", "cached", "tracking")
+    des = os.path.join(des_dir, "tracking")
+
+    with open(message, 'w') as file:
+        file.write(f"{commit_message}")
+    
+    shutil.copy2(src, des)
+    print(f"Committed as commit {commit_num}")
+
+msg = input_check()
+save_snapshot()
+commit(msg)

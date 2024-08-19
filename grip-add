@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+
+
+import sys
+import os
+import uuid
+import shutil
+import difflib
+
+
+def initial_check():
+    if not os.path.exists(".grip"):
+        print("grip-add: error: grip repository directory .grip not found")
+        sys.exit()
+
+    if len(sys.argv) < 2:
+        print("usage: grip-add <filenames>")
+        sys.exit()
+
+def get_info():
+    
+    cached_name = os.path.join(".grip", "cached", "tracking")
+    stage_name = os.path.join(".grip", "staging", "tracking")            
+
+    with open(cached_name) as file:
+        cache = file.readlines()
+
+    with open(stage_name) as file:
+        stage = file.readlines()
+
+    cache_dict = {}
+    for i in range(len(cache)):
+        cache_dict[cache[i].strip().split()[0]] = cache[i].strip().split()[1]
+    
+    stage_dict = {}
+    for i in range(len(stage)):
+        stage_dict[stage[i].strip().split()[0]] = stage[i].strip().split()[1]
+    
+    commits = os.path.join(".grip", "commits")   
+    last_commit = len(os.listdir(commits)) - 1
+    head_dict = {}
+    if last_commit >= 0:
+        head = os.path.join(".grip", "commits", str(last_commit), "tracking")
+        
+        with open(head) as file1:
+            head_files = file1.readlines()
+    
+        for i in range(len(head_files)):
+            head_dict[head_files[i].strip().split()[0]] = head_files[i].strip().split()[1]
+
+        
+    return cache_dict, stage_dict, head_dict
+
+def file_compare(file, refdict):
+    committed = os.path.join(".grip", "blob", refdict[file])
+    
+    with open(committed) as file1:
+        text1 = file1.readlines()
+    with open(file) as file2:
+        text2 = file2.readlines()
+
+    matcher = difflib.SequenceMatcher(None, text1, text2)
+    if matcher.ratio() == 1.0:
+        return True
+    return False
+
+def check_input(files):
+    
+    cache, stage, head = get_info()
+
+    #file must in cwd or in cache
+    for file in files:
+        if not os.path.exists(file) and (file not in cache):
+            print(f"grip-add: error: can not open '{file}'")
+            sys.exit()
+    
+    #If file different from the cache version or file not in cache, save it in a new blob.
+    #If file in cache then put it back to the staging area
+    for file in files:
+        if not os.path.exists(file) and (file in cache):
+            stage[file] = write_blob(os.path.join(".grip", "blob", cache[file]))
+            del cache[file]
+            write_cache(cache)
+        elif os.path.exists(file) and (file in stage):
+            if file_compare(file, stage):
+                pass
+            else:
+                stage[file] = write_blob(file)
+        elif os.path.exists(file) and (file not in cache):
+            stage[file] = write_blob(file)
+        else:
+            #file exists and file in cache
+            if file_compare(file, cache):
+                pass
+            else:
+                stage[file] = write_blob(file)
+
+    write_stage(stage)
+    
+def write_cache(cache):
+    cache_name = os.path.join(".grip", "cached", "tracking")
+
+    with open(cache_name, 'w') as file:
+        for key, value in cache.items():
+            file.write(key + " " + value + "\n")
+
+def write_stage(stage):
+    stage_name = os.path.join(".grip", "staging", "tracking")
+
+    with open(stage_name, 'w') as file:
+        for key, value in stage.items():
+            file.write(key + " " + value + "\n")
+
+def write_blob(file):
+    random_id = str(uuid.uuid4())
+    shutil.copy2(file, os.path.join(".grip", "blob", os.path.basename(random_id)))
+
+    return random_id
+
+initial_check()
+check_input(sys.argv[1:])

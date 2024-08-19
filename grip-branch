@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+
+import sys
+import os
+
+
+def initial_check():
+    if not os.path.exists(".grip"):
+        print("grip-branch: error: grip repository directory .grip not found")
+        sys.exit()
+
+    if len(sys.argv) > 3:
+        print("usage: grip-branch [-d] [branch]")
+        sys.exit()
+
+def get_info():
+    
+    cached_name = os.path.join(".grip", "cached", "tracking")
+    stage_name = os.path.join(".grip", "staging", "tracking")            
+
+    with open(cached_name) as file:
+        cache = file.readlines()
+
+    with open(stage_name) as file:
+        stage = file.readlines()
+
+    cache_dict = {}
+    for i in range(len(cache)):
+        cache_dict[cache[i].strip().split()[0]] = cache[i].strip().split()[1]
+    
+    stage_dict = {}
+    for i in range(len(stage)):
+        stage_dict[stage[i].strip().split()[0]] = stage[i].strip().split()[1]
+    
+    commits = os.path.join(".grip", "commits")   
+    last_commit = len(os.listdir(commits)) - 1
+    head_dict = {}
+    if last_commit >= 0:
+        head = os.path.join(".grip", "commits", str(last_commit), "tracking")
+        
+        with open(head) as file1:
+            head_files = file1.readlines()
+    
+        for i in range(len(head_files)):
+            head_dict[head_files[i].strip().split()[0]] = head_files[i].strip().split()[1]
+
+        
+    return cache_dict, stage_dict, head_dict
+
+
+initial_check()
+

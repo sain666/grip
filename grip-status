@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+
+import sys
+import os
+import difflib
+
+
+def initial_check():
+    if not os.path.exists(".grip"):
+        print("grip-status: error: grip repository directory .grip not found")
+        sys.exit()
+
+    if len(sys.argv) != 1:
+        print("usage: grip-status")
+        sys.exit()
+
+def get_info():
+    
+    cached_name = os.path.join(".grip", "cached", "tracking")
+    stage_name = os.path.join(".grip", "staging", "tracking")            
+
+    with open(cached_name) as file:
+        cache = file.readlines()
+
+    with open(stage_name) as file:
+        stage = file.readlines()
+
+    cache_dict = {}
+    for i in range(len(cache)):
+        cache_dict[cache[i].strip().split()[0]] = cache[i].strip().split()[1]
+    
+    stage_dict = {}
+    for i in range(len(stage)):
+        stage_dict[stage[i].strip().split()[0]] = stage[i].strip().split()[1]
+    
+    commits = os.path.join(".grip", "commits")   
+    last_commit = len(os.listdir(commits)) - 1
+    head_dict = {}
+    if last_commit >= 0:
+        head = os.path.join(".grip", "commits", str(last_commit), "tracking")
+        
+        with open(head) as file1:
+            head_files = file1.readlines()
+    
+        for i in range(len(head_files)):
+            head_dict[head_files[i].strip().split()[0]] = head_files[i].strip().split()[1]
+
+        
+    return cache_dict, stage_dict, head_dict
+
+def find_diff(file):
+    cache, stage, head = get_info()
+
+    if file not in stage:
+        return False
+
+    text1 = stage[file]
+    text2 = cache[file]
+            
+    return text1 != text2
+
+def check_dup(file):
+    cache, stage, head = get_info()
+            
+    with open(file) as f:
+        text1 = f.readlines()
+
+    with open(os.path.join(".grip", "blob", head[file])) as f:
+        text2 = f.readlines()
+    
+    matcher = difflib.SequenceMatcher(None, text1, text2)
+    if matcher.ratio() != 1.0:
+        return False
+    return True
+
+#Compare the file in blob with the file no cwd, return True if there are same
+def file_compare(file, refdict):
+    committed = os.path.join(".grip", "blob", refdict[file])
+    
+    with open(committed) as file1:
+        text1 = file1.readlines()
+    with open(file) as file2:
+        text2 = file2.readlines()
+
+    matcher = difflib.SequenceMatcher(None, text1, text2)
+    if matcher.ratio() == 1.0:
+        return True
+    return False
+
+
+def get_status(cache, stage, head):
+    files = []
+    for e in os.listdir(os.getcwd()):
+        if os.path.isfile(e):
+            files.append(e)
+    
+    for key in cache.keys():
+        if key not in files:
+            files.append(key)
+
+    for key in stage.keys():
+        if key not in files:
+            files.append(key)
+    
+    for key in head.keys():
+        if key not in files:
+            files.append(key)
+    
+    files = sorted(files)
+
+    for file in files:
+        if file not in stage and file not in cache and file not in head:
+            print(f"{file} - untracked")
+        elif not os.path.exists(file) and file not in cache and file not in stage:
+            print(f"{file} - file deleted, deleted from index")
+        elif not os.path.exists(file) and file in cache:
+            print(f"{file} - file deleted")
+        elif not os.path.exists(file) and file in stage:
+            print(f"{file} - added to index, file deleted")
+        elif os.path.exists(file) and file not in stage and file not in cache and file in head:
+            print(f"{file} - deleted from index")
+        elif file not in head:
+            if file_compare(file, stage):
+                print(f"{file} - added to index")
+            else:
+                print(f"{file} - added to index, file changed")
+        elif find_diff(file):
+            if file_compare(file, stage):
+                print(f"{file} - file changed, changes staged for commit")
+            else:
+                print(f"{file} - file changed, different changes staged for commit")
+        elif not check_dup(file):
+            print(f"{file} - file changed, changes not staged for commit")
+        else:
+            print(f"{file} - same as repo")
+        
+
+
+initial_check()
+cache, stage, head = get_info()
+get_status(cache, stage, head)

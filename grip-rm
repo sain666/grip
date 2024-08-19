@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+
+import sys
+import os
+import re
+import difflib
+
+def get_info():
+    
+    cached_name = os.path.join(".grip", "cached", "tracking")
+    stage_name = os.path.join(".grip", "staging", "tracking")            
+
+    with open(cached_name) as file:
+        cache = file.readlines()
+
+    with open(stage_name) as file:
+        stage = file.readlines()
+
+    cache_dict = {}
+    for i in range(len(cache)):
+        cache_dict[cache[i].strip().split()[0]] = cache[i].strip().split()[1]
+    
+    stage_dict = {}
+    for i in range(len(stage)):
+        stage_dict[stage[i].strip().split()[0]] = stage[i].strip().split()[1]
+    
+    commits = os.path.join(".grip", "commits")   
+    last_commit = len(os.listdir(commits)) - 1
+    head_dict = {}
+    if last_commit >= 0:
+        head = os.path.join(".grip", "commits", str(last_commit), "tracking")
+        
+        with open(head) as file1:
+            head_files = file1.readlines()
+    
+        for i in range(len(head_files)):
+            head_dict[head_files[i].strip().split()[0]] = head_files[i].strip().split()[1]
+
+        
+    return cache_dict, stage_dict, head_dict
+
+
+def input_check():
+
+    cache, stage, head = get_info()
+
+    if not os.path.exists(".grip"):
+        print("grip-rm: error: grip repository directory .grip not found")
+        sys.exit()
+
+    if sys.argv[1] != "--force" and sys.argv[1] != "--cached":
+        filename = sys.argv[1:]
+        option = ""
+
+    elif sys.argv[1] == "--force":
+        if sys.argv[2] == "--cached":
+            option = "all"
+            filename = sys.argv[3:]
+        else:
+            option = "--force"
+            filename = sys.argv[2:]
+
+    elif sys.argv[1] == "--cached":
+        option = "--cached"
+        filename = sys.argv[2:]
+        
+    else:
+        print("usage: grip-rm [--force] [--cached] <filenames>") 
+        sys.exit()
+    
+    for name in filename:
+        match = re.findall(r'^[a-zA-Z0-9][a-zA-Z0-9._-]*$', name)
+        if not match:
+            print(f"grip-show: error: invalid filename '{name}'")
+            sys.exit()
+
+        if not os.path.exists(name):
+            print(f"grip-rm: error: '{name}' is not in the grip repository")
+            sys.exit()
+        
+        if name not in cache and name not in stage:
+            print(f"grip-rm: error: '{name}' is not in the grip repository")
+            sys.exit()
+
+    return filename, option
+    
+#Compare the file in blob with the file no cwd, return True if there are same
+def file_compare(file, refdict):
+    committed = os.path.join(".grip", "blob", refdict[file])
+    
+    with open(committed) as file1:
+        text1 = file1.readlines()
+    with open(file) as file2:
+        text2 = file2.readlines()
+
+    matcher = difflib.SequenceMatcher(None, text1, text2)
+    if matcher.ratio() == 1.0:
+        return True
+    return False
+
+
+def delete_file(filename, force):
+    
+    cache, stage, last_commit = get_info()
+
+    for name in filename:
+        
+        if force == 0:
+            #name in stage
+            if name in stage:
+                if name in cache and not file_compare(name, cache) and not file_compare(name, stage):
+                    print(f"grip-rm: error: '{name}' in index is different to both the working file and the repository")
+                    sys.exit()
+                else:
+                    print(f"grip-rm: error: '{name}' has staged changes in the index")
+                    sys.exit()
+            #name not in stage
+            elif name in cache and not file_compare(name, cache):
+                print(f"grip-rm: error: '{name}' in the repository is different to the working file")
+                sys.exit()
+        
+        os.remove(name)
+
+
+def delete_cache(filename, force):
+    
+    cache, stage, last_commit = get_info()
+
+    for name in filename:
+        if force == 0:
+            if name in stage:
+                if name in cache and not file_compare(name, cache) and not file_compare(name, stage):
+                    print(f"grip-rm: error: '{name}' in index is different to both the working file and the repository")
+                    sys.exit()
+        
+    for name in filename:
+        if name in stage:
+            del stage[name]
+        if name in cache:
+            del cache[name]
+        
+    cached_name = os.path.join(".grip", "cached", "tracking")
+    stage_name = os.path.join(".grip", "staging", "tracking")
+    
+    with open(stage_name, 'w') as file:
+        for key, value in stage.items():
+            file.write(key + " " + value + "\n")
+    
+    with open(cached_name, 'w') as file:
+        for key, value in cache.items():
+            file.write(key + " " + value + "\n")
+
+
+filename, option = input_check()
+
+if option == "":
+    delete_file(filename, 0)
+    delete_cache(filename, 0)
+elif option == "all":
+    delete_cache(filename, 1)
+elif option == "--force":
+    delete_file(filename, 1)
+    delete_cache(filename, 1)
+elif option == "--cached":
+    delete_cache(filename, 0)
+

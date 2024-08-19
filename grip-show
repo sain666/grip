@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+
+import sys
+import os
+import re
+
+def get_info():
+    
+    cached_name = os.path.join(".grip", "cached", "tracking")
+    stage_name = os.path.join(".grip", "staging", "tracking")            
+
+    with open(cached_name) as file:
+        cache = file.readlines()
+
+    with open(stage_name) as file:
+        stage = file.readlines()
+
+    cache_dict = {}
+    for i in range(len(cache)):
+        cache_dict[cache[i].strip().split()[0]] = cache[i].strip().split()[1]
+    
+    stage_dict = {}
+    for i in range(len(stage)):
+        stage_dict[stage[i].strip().split()[0]] = stage[i].strip().split()[1]
+    
+    commits = os.path.join(".grip", "commits")   
+    last_commit = len(os.listdir(commits)) - 1
+    head_dict = {}
+    if last_commit >= 0:
+        head = os.path.join(".grip", "commits", str(last_commit), "tracking")
+        
+        with open(head) as file1:
+            head_files = file1.readlines()
+    
+        for i in range(len(head_files)):
+            head_dict[head_files[i].strip().split()[0]] = head_files[i].strip().split()[1]
+
+        
+    return cache_dict, stage_dict, head_dict
+
+
+def get_blob(num, filename):
+    
+    commits = os.path.join(".grip", "commits")   
+    head_dict = {}
+
+    head = os.path.join(".grip", "commits", num, "tracking")
+        
+    with open(head) as file1:
+        head_files = file1.readlines()
+
+    for i in range(len(head_files)):
+        head_dict[head_files[i].strip().split()[0]] = head_files[i].strip().split()[1]
+
+    if filename not in head_dict:
+        print(f"grip-show: error: '{filename}' not found in commit {num}")
+        sys.exit()
+    
+    blob = os.path.join(".grip", "blob", head_dict[filename])
+    with open(blob) as file:
+        text1 = file.readlines()
+
+    return text1
+
+
+def input_check():
+    if not os.path.exists(".grip"):
+        print("grip-log: error: grip repository directory .grip not found")
+        sys.exit()
+
+    if len(sys.argv) != 2:
+        print("usage: grip-show <commit>:<filename>")
+        sys.exit()
+
+    try:
+        commit_num, filename = sys.argv[1].split(":")
+    except ValueError:
+        print("usage: grip-show <commit>:<filename>")
+        sys.exit()
+
+    return commit_num, filename
+
+def grip_show(commit_num, filename):
+
+    cache, stage, head = get_info()
+
+    blob = ""
+    if commit_num == "":
+        if filename not in stage and filename not in cache:
+            print(f"grip-show: error: '{filename}' not found in index")
+            sys.exit()
+    
+        if len(stage) != 0:
+            blob = stage[filename]
+            with open(os.path.join(".grip", "blob", blob)) as file:
+                text = file.readlines()
+        elif len(cache) != 0:
+            if filename not in cache:
+                print(f"grip-show: error: '{filename}' not found in index")
+                sys.exit()
+            blob = cache[filename]
+            with open(os.path.join(".grip", "blob", blob)) as file:
+                text = file.readlines()
+    else:
+        path = os.path.join(".grip", "commits", commit_num)
+        if not os.path.exists(path):
+            print(f"grip-show: error: unknown commit '{commit_num}'")
+            sys.exit()
+        else:
+            text = get_blob(commit_num, filename)
+
+    for e in text:
+        print(e, end="")
+
+
+commit_num, filename = input_check()
+grip_show(commit_num, filename)
