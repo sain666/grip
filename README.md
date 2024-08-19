@@ -19,7 +19,7 @@ grip-rm, like git rm, should stop the user accidentally losing work, and should 
 
 ## Examples
 
-**Example1**
+**Subset0**
 ```
 ./grip-init
 Initialized empty grip repository in .grip
@@ -58,7 +58,7 @@ hello world
 hello world
 ```
 
-**Example2**
+**Subset1**
 ```
 ./grip-init
 Initialized empty grip repository in .grip
@@ -99,6 +99,5 @@ grip-status - untracked
 grip.py - untracked
 h - untracked
 ```
-
-- **Mark**: 86.1/100 (High Distinction)
+**Mark**: 86.1/100 (High Distinction)
 
