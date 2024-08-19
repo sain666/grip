@@ -5,9 +5,9 @@ It includes 10 shell scripts named `grip-init` `grip-add` `grip-commit` `grip-lo
 
 ## description
 
-The `grip-init` command creates an empty Grip repository.
-The `grip-add` command adds the contents of one or more files to the index.
-The `grip-commit [-a]` command saves a copy of all files in the index to the repository, if -a is used then all files already in the index to have their contents from the current directory added to the index before the commit.
+- `grip-init` command creates an empty Grip repository.
+- `grip-add` command adds the contents of one or more files to the index.
+- `grip-commit [-a]` command saves a copy of all files in the index to the repository, if -a is used then all files already in the index to have their contents from the current directory added to the index before the commit.
 
 The `grip-log` command prints a line for every commit made to the repository.
 The `grip-show [commit]:filename` should print the contents of the specified filename as of the specified commit.
